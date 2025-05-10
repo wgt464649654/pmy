@@ -99,14 +99,18 @@ export function animateLines(ctx: CanvasRenderingContext2D, testLightLines: any[
         progress
       );
   
-      progress += 0.02; // 控制动画速度
+      progress += 0.05; // 控制动画速度
   
       if (progress >= 1) {
         currentLineIndex++;
         progress = 0;
       }
-  
-      requestAnimationFrame(animate);
+
+      if ((currentLineIndex === testLightLines.length - 1)) {
+        requestAnimationFrame(animate);
+      } else {
+        animate()
+      }
     }
   
     animate();

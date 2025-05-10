@@ -120,6 +120,11 @@ export function App() {
     preStep()
   }
 
+  const resume = () => {
+    setTab(TabEnum.test)
+    clearStu()
+  }
+
   const testLine = i => {
     const lastItem = stuLightLines[stuLightLines?.length - 1]
     if (lastItem) {
@@ -167,8 +172,6 @@ export function App() {
     setStuLines(value.lines)
   }
 
-  console.log('stuLines', stuLines)
-
   const pmyLook = () => {
     Modal.confirm({
       title: '输入密码',
@@ -201,7 +204,7 @@ export function App() {
     })
   }
 
-  console.log('layout', layout, stuLightLines)
+  // console.log('layout', layout, stuLightLines)
 
   return (
     <>
@@ -333,7 +336,7 @@ export function App() {
               <Button onClick={() => {
                 setTab(TabEnum.test)
               }}>返回继续测试</Button>
-              <Button type="primary" onClick={() => setTab(TabEnum.result)}>
+              <Button type="primary" onClick={resume}>
                 重新考试
               </Button>
               <Button danger onClick={stopExame}>

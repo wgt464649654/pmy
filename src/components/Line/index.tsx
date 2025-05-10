@@ -63,7 +63,7 @@ export default function Line(props) {
       if (lightRef.current) {
         const lightRect = lightRef.current.getBoundingClientRect()
 
-        animateLines(ctx, testLightLines, children, lightRect, boxRect, lightTop);
+        testLightLines?.length && animateLines(ctx, testLightLines, children, lightRect, boxRect, lightTop);
 
         // testLightLines.forEach(light => {
         //   // 获取两个点的坐标
