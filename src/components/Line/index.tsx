@@ -4,10 +4,10 @@ import { AnImg, LightDiv, LineItem } from "./styles";
 import { useEffect, useMemo, useRef, useState } from "react";
 import lightPng from './light1.png'
 import anPng from './anan.png'
-import { canConnect } from "./util";
+import { animateLines, canConnect } from "./util";
 
 export default function Line(props) {
-  const { value, scale = 1, showLight = true, isPreview, testLines, onChange } = props
+  const { value, scale = 1, showLight = true, isPreview, testLines = [], testLightLines = [], onChange } = props
 
   const {
     num,
@@ -17,7 +17,7 @@ export default function Line(props) {
 
   const lines = isPreview ? rightLines : testLines
 
-  // console.log('111', lines, rightLines)
+  const lightTop = showLight ? 55 : 0
 
   const [current, setCurrent] = useState<number | undefined>()
   const [isImgCheck, setIsImgCheck] = useState(false)
@@ -28,15 +28,17 @@ export default function Line(props) {
   const lightRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    let ctx: any = null
+    let canvas: any = null
     const drawLines = () => {
       if (!containRef.current) return
 
-      const canvas = canvasRef.current;
+      canvas = canvasRef.current;
       if (!canvas) return
 
       canvas.width = containRef.current.offsetWidth
       canvas.height = containRef.current.offsetHeight
-      const ctx = canvas.getContext('2d');
+      ctx = canvas.getContext('2d');
       if (!ctx) return
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -52,30 +54,38 @@ export default function Line(props) {
         ctx.beginPath();
         // 设置线的颜色
         ctx.strokeStyle = '';
-        ctx.moveTo(start.left - boxRect.left + 66, start.top - boxRect.top + 50 + 55);
-        ctx.lineTo(end.left - boxRect.left + 66, end.top - boxRect.top + 50 + 55);
+        ctx.moveTo(start.left - boxRect.left + 66, start.top - boxRect.top + 50 + lightTop);
+        ctx.lineTo(end.left - boxRect.left + 66, end.top - boxRect.top + 50 + lightTop);
         ctx.stroke();
       });
 
       // 绘制灯泡线
       if (lightRef.current) {
         const lightRect = lightRef.current.getBoundingClientRect()
-        lightLines.forEach(light => {
-          // 获取两个点的坐标
-          const start = children[light].getBoundingClientRect()
-          // 绘制直线
-          ctx.beginPath();
-          // 设置线的颜色
-          ctx.strokeStyle = '';
-          ctx.moveTo(lightRect.left - boxRect.left + 200, lightRect.top - boxRect.top + 50 + 55);
-          ctx.lineTo(start.left - boxRect.left + 66, start.top - boxRect.top + 50 + 55);
-          ctx.stroke();
-        })
+
+        animateLines(ctx, testLightLines, children, lightRect, boxRect, lightTop);
+
+        // testLightLines.forEach(light => {
+        //   // 获取两个点的坐标
+        //   const start = children[light].getBoundingClientRect()
+        //   // 绘制直线
+        //   ctx.beginPath();
+        //   // 设置线的颜色
+        //   ctx.strokeStyle = '';
+        //   ctx.moveTo(lightRect.left - boxRect.left + 200, lightRect.top - boxRect.top + 50 + 55);
+        //   ctx.lineTo(start.left - boxRect.left + 66, start.top - boxRect.top + 50 + 55);
+        //   ctx.stroke();
+        // })
       }
     };
 
     drawLines()
-  }, [lines, num, isPreview, lightLines, testLines]);
+
+    return () => {
+      // 清除画布
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, [lines, num, isPreview, lightLines, testLines, testLightLines, lightTop]);
 
   useEffect(() => {
     document.addEventListener('click', () => {
@@ -84,7 +94,7 @@ export default function Line(props) {
   }, [])
 
   const renderColor = (i: number) => {
-    if (current === i) {
+    if (testLightLines.includes(i) || current === i) {
       return '#52C41A'
     } else if (lines.some(line => line.includes(i))) {
       return isPreview ? '#1677FF' : ''
@@ -139,6 +149,14 @@ export default function Line(props) {
   }, [isImgCheck, current, lines])
 
   const toConnect = (i: number) => {
+    if (isPreview) {
+      toConnectPreview(i)
+    } else {
+      onChange?.(i)
+    }
+  }
+
+  const toConnectPreview = (i: number) => {
     if (current === undefined) {
       setCurrent(i)
     } else if (current === i) {
@@ -166,20 +184,20 @@ export default function Line(props) {
 
   const checkLightImg = (e) => {
     // 停止冒泡
-    e.stopPropagation()
-    setIsImgCheck(true)
+    // e.stopPropagation()
+    // setIsImgCheck(true)
   }
   
   const checkAnImg = (e) => {
     // 停止冒泡
-    e.stopPropagation()
-    setIsImgCheck(true)
+    // e.stopPropagation()
+    // setIsImgCheck(true)
   }
 
   const isLight = useMemo(() => {
     // 判断
-    return canConnect(lightLines, rightLines)
-  }, [lightLines, rightLines])
+    return testLightLines?.length === 2 && canConnect(rightLines, testLightLines[0], testLightLines[1])
+  }, [rightLines, testLightLines])
 
   if (!num) {
     return <Empty description='请先设置接线柱数量' image={Empty.PRESENTED_IMAGE_SIMPLE} />
@@ -188,10 +206,10 @@ export default function Line(props) {
   return (
     <div style={{ transform: `scale(${scale})` }}>
       <div ref={containRef} style={{ position: 'relative' ,border: '1px solid #f0f0f0', borderRadius: 8, width: 410 }}>
-        <LightDiv ref={lightRef}>
+        {showLight && <LightDiv ref={lightRef}>
           <img style={{ display: isLight?'block':'none', width: 50, height: 50, borderRadius: '25px' }} src={lightPng} onClick={checkLightImg} />
           <AnImg style={{ display: isLight?'none':'block', width: 50, height: 50, filter: 'grayscale(100%)', borderRadius: '25px', cursor: 'pointer', border: isImgCheck?'1px solid red':'' }} src={anPng} onClick={checkAnImg} />
-        </LightDiv>
+        </LightDiv>}
         <div ref={lineRef} style={{ position: 'relative' ,display: 'flex', flexWrap:'wrap' }}>
           {new Array(num).fill(0).map((_, i) => (
             <div key={i} style={{ width: 100, height: 100, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>

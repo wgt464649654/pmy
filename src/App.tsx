@@ -2,7 +2,7 @@ import { GlobalStyle } from './styles/GlobalStyle'
 
 import Test from './components/Test'
 import { useEffect, useState } from 'react'
-import { TabEnum } from './util'
+import { generateRandomConnections, pmyma, TabEnum } from './util'
 import { Container } from './components/Button/styles'
 import { Title } from './components/Greetings/styles'
 import {
@@ -19,30 +19,55 @@ import {
   Row,
   Typography,
 } from 'antd'
-import { AimOutlined } from '@ant-design/icons'
 import Line from './components/Line'
 import { canConnect, isSame } from './components/Line/util'
 
 export function App() {
   const [tab, setTab] = useState(TabEnum.home)
   const [stuLightLines, setStuLightLines] = useState<any[]>([])
+  const [stuLinesLook, setStuLinesLook] = useState<any[]>([])
   const [stuLines, setStuLines] = useState<any[]>([])
   const [isSuccess, setIsSuccess] = useState(false)
   const [formData, setFormData] = useState({})
-
-  const layout = formData.layout
+  const [fillResult, setFillResult] = useState(false)
+  const [layout, setLayout] = useState<{
+    num: number,
+    lines: number[][],
+    lightLines: number[][]
+  }>({
+    num: 0,
+    lines: [],
+    lightLines: []
+  })
 
   const [form] = Form.useForm()
   const [pswForm] = Form.useForm()
 
-  const tempNum = Form.useWatch('zNumber', form)
+  const zNumber = Form.useWatch('zNumber', form)
+  const lNumber = Form.useWatch('lNumber', form)
 
   useEffect(() => {
-    form.setFieldValue('layout', {
-      ...form.getFieldValue('layout'),
-      num: tempNum,
-    })
-  }, [tempNum])
+    if (zNumber) {
+      form.setFieldsValue({
+        lNumber: ''
+      })
+      setLayout({
+        num: zNumber,
+        lines: [],
+        lightLines: []
+      })
+    }
+  }, [zNumber])
+
+  useEffect(() => {
+    if (lNumber) {
+      setLayout(e => ({
+        ...e,
+        lines: generateRandomConnections(zNumber, lNumber),
+        lightLines: []
+      }))
+    }
+  }, [lNumber])
 
   const reset = () => {
     form.setFieldValue('layout', {
@@ -68,7 +93,7 @@ export function App() {
       onOk: () => {
         pswForm.validateFields().then(res => {
           pswForm.resetFields()
-          if (res.psw === 'pmyxhwgtdtbs') {
+          if (res.psw === pmyma) {
             setTab(TabEnum.home)
             clearStu()
             setTimeout(() => {
@@ -95,18 +120,25 @@ export function App() {
     preStep()
   }
 
-  const testLine = value => {
-    const { lines = [], lightLines = [] } = value
-
-    if (lightLines?.length === 1) {
-      // 添加第一条
-      setStuLightLines(e => [...e, lightLines])
-    } else if (lightLines?.length === 2) {
-      // 替换最后一条
-      setStuLightLines(e => [...e.slice(0, e.length - 1), lightLines])
+  const testLine = i => {
+    const lastItem = stuLightLines[stuLightLines?.length - 1]
+    if (lastItem) {
+      if (lastItem.includes(i)) {
+        // 去掉这一项
+        setStuLightLines(e => [...e.slice(0, e.length - 1), lastItem.filter(e => e !== i)])
+      } else if (lastItem.length === 0) {
+        // 空数组
+        setStuLightLines(e => [...e.slice(0, e.length - 1), [i]])
+      } else if (lastItem.length === 1) {
+        // 添加这一项
+        setStuLightLines(e => [...e.slice(0, e.length - 1), [...lastItem, i]])
+      } else if (lastItem.length === 2) {
+        // 重新再建一条
+        setStuLightLines(e => [...e, [i]])
+      }
+    } else {
+      setStuLightLines(e => [...e, [i]])
     }
-
-    setStuLines(lines)
   }
 
   const submit = () => {
@@ -120,14 +152,56 @@ export function App() {
 
   const toExame = () => {
     form.validateFields().then(res => {
-      const { layout: _layout } = res
-      if (!_layout.lines?.length || !_layout.lightLines?.length) {
+      if (!layout.lines?.length && !layout.num) {
         return message.warning('请设置连线')
       }
       setFormData(res || {})
       setTab(TabEnum.test)
-    }).catch(err => {})
+    }).catch(err => {
+      console.log('err', err)
+    })
   }
+
+  const submitResult = (value) => {
+    console.log(131, value)
+    setStuLines(value.lines)
+  }
+
+  console.log('stuLines', stuLines)
+
+  const pmyLook = () => {
+    Modal.confirm({
+      title: '输入密码',
+      content: (
+        <Form form={pswForm}>
+          <Form.Item
+            name="psw"
+            rules={[{ required: true, message: '请输入密码' }]}
+          >
+            <Input.Password placeholder="请输入密码" />
+          </Form.Item>
+        </Form>
+      ),
+      onOk: () => {
+        pswForm.validateFields().then(res => {
+          pswForm.resetFields()
+          if (res.psw === pmyma) {
+            const lastLight = [...stuLightLines]
+            setStuLinesLook(layout.lines)
+            setStuLightLines([])
+            setTimeout(() => {
+              setStuLinesLook([])
+              setStuLightLines(lastLight)
+            }, 1000)
+          } else {
+            message.error('密码错误')
+          }
+        })
+      },
+    })
+  }
+
+  console.log('layout', layout, stuLightLines)
 
   return (
     <>
@@ -142,36 +216,43 @@ export function App() {
               rules={[{ required: true, message: '请选择接线柱数量' }]}
             >
               <Radio.Group
-                style={{ display: 'flex', gap: 20, maxWidth: 400, flexWrap: 'wrap' }}
+                style={{ display: 'flex', gap: 20, width: 300, flexWrap: 'wrap' }}
                 options={[
-                  { value: 2, label: '2' },
                   { value: 3, label: '3' },
                   { value: 4, label: '4' },
                   { value: 5, label: '5' },
                   { value: 6, label: '6' },
-                  { value: 7, label: '7' },
-                  { value: 8, label: '8' },
-                  { value: 9, label: '9' },
-                  { value: 10, label: '10' },
-                  { value: 11, label: '11' },
-                  { value: 12, label: '12' },
                 ]}
               />
             </Form.Item>
+
+            {zNumber && <Form.Item
+              name={'lNumber'}
+              label="请选择导线数量"
+              rules={[{ required: true, message: '请选择导线数量' }]}
+              dependencies={['zNumber']}
+            >
+              <Radio.Group
+                style={{ display: 'flex', gap: 20, width: 300, flexWrap: 'wrap' }}
+                options={new Array(zNumber - 1).fill('').map((e, index) => ({
+                  value: index + 1,
+                  label: index + 1,
+                }))}
+              />
+            </Form.Item>}
 
             {/* <Form.Item name={'zNumberInput'} label='自定义数量'>
               <InputNumber placeholder='手动输入' style={{ width: '150px' }} />
             </Form.Item> */}
 
-            <Form.Item
-              name="layout"
+            {/* <Form.Item
               label="预览并设置布局"
               tooltip="再次连接两个已连接的线将会取消连接"
             >
-              <Line isPreview />
-            </Form.Item>
+              <Line isPreview value={layout} onChange={setLayout} />
+            </Form.Item> */}
             <div></div>
-            <Row style={{ gap: 12 }} justify={'center'}>
+            <Row style={{ gap: 12, marginTop: 50 }} justify={'center'}>
               <Button onClick={reset}>重置布局</Button>
               <Button type="primary" onClick={toExame}>
                 开考
@@ -182,12 +263,10 @@ export function App() {
         {tab === TabEnum.test && (
           <>
             <Line
-              value={{
-                ...layout,
-                lightLines: stuLightLines[stuLightLines?.length - 1], // 取最后一次
-              }}
+              value={layout}
               isPreview={false}
-              testLines={stuLines}
+              testLightLines={stuLightLines[stuLightLines?.length - 1]} // 取最后一次
+              testLines={stuLinesLook}
               onChange={testLine}
             />
             <Row style={{ gap: 12, width: 550, justifyContent: 'center' }}>
@@ -197,7 +276,7 @@ export function App() {
                   style={{
                     border: '1px solid #f0f0f0',
                     width: 100,
-                    height: 180,
+                    height: 200,
                     overflow: 'auto',
                     padding: 12,
                     textAlign: 'left',
@@ -206,26 +285,26 @@ export function App() {
                   {stuLightLines.map((item, index) => (
                     <div key={index} style={{ display: 'flex', gap: 12 }}>
                       {item[0]} - {item[1]}{' '}
-                      {canConnect(item, layout?.lines) ? '亮' : '不亮'}
+                      {(item?.length === 2 && canConnect(layout.lines, item[0], item[1])) ? '亮' : '不亮'}
                     </div>
                   ))}
                 </div>
               </div>
-              {/* <div>
+              <div>
                 检验结果:
                 <Line
                   isPreview
                   showLight={false}
                   value={{
                     ...layout,
-                    ...testLayout,
                     lines: stuLines
                   }}
                   onChange={submitResult}
                 />
-              </div> */}
+              </div>
             </Row>
             <Row style={{ gap: 12 }}>
+              <Button onClick={pmyLook}>偷瞄答案</Button>
               <Button onClick={preStep}>取消考试</Button>
               <Button type="primary" onClick={submit}>
                 测试结束，提交答案
